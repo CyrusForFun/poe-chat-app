@@ -393,25 +393,42 @@ def chat():
             pass
         api_messages.append({"role": m["role"], "content": content_raw})
 
+    MEDIA_MODELS = {"Nano-Banana-Pro", "GPT-Image-1.5", "Veo-3.1"}
+    is_media = model in MEDIA_MODELS
+
     def generate():
         full_response = ""
         input_tokens = 0
         output_tokens = 0
         try:
-            stream = client.chat.completions.create(
-                model=model,
-                messages=api_messages,
-                stream=True,
-                stream_options={"include_usage": True},
-            )
-            for chunk in stream:
-                if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
-                    content = chunk.choices[0].delta.content
-                    full_response += content
-                    yield f"data: {json.dumps({'content': content})}\n\n"
-                if hasattr(chunk, 'usage') and chunk.usage:
-                    input_tokens = getattr(chunk.usage, 'prompt_tokens', 0) or 0
-                    output_tokens = getattr(chunk.usage, 'completion_tokens', 0) or 0
+            if is_media:
+                # Non-streaming for image/video models
+                response = client.chat.completions.create(
+                    model=model,
+                    messages=api_messages,
+                    stream=False,
+                )
+                full_response = response.choices[0].message.content or ""
+                if response.usage:
+                    input_tokens = response.usage.prompt_tokens or 0
+                    output_tokens = response.usage.completion_tokens or 0
+                yield f"data: {json.dumps({'content': full_response})}\n\n"
+            else:
+                # Streaming for text models
+                stream = client.chat.completions.create(
+                    model=model,
+                    messages=api_messages,
+                    stream=True,
+                    stream_options={"include_usage": True},
+                )
+                for chunk in stream:
+                    if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+                        content = chunk.choices[0].delta.content
+                        full_response += content
+                        yield f"data: {json.dumps({'content': content})}\n\n"
+                    if hasattr(chunk, 'usage') and chunk.usage:
+                        input_tokens = getattr(chunk.usage, 'prompt_tokens', 0) or 0
+                        output_tokens = getattr(chunk.usage, 'completion_tokens', 0) or 0
             # Save assistant response with token usage
             conn = psycopg2.connect(DATABASE_URL)
             cur = conn.cursor()

@@ -615,6 +615,11 @@
         }
 
         // ── Message rendering ──
+        function renderMarkdown(text) {
+            // Render markdown images: ![alt](url)
+            return text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img class="chat-img" src="$2" alt="$1" onclick="window.open(\'$2\',\'_blank\')">');
+        }
+
         function appendMessage(role, content) {
             const div = document.createElement('div');
             const isUser = role === 'user';
@@ -637,9 +642,29 @@
             } catch {}
 
             if (textContent) {
-                const textNode = document.createElement('span');
-                textNode.textContent = textContent;
-                contentEl.appendChild(textNode);
+                if (!isUser && /!\[.*\]\(.*\)/.test(textContent)) {
+                    // Render markdown images for bot messages
+                    const textParts = textContent.split(/(!\[[^\]]*\]\([^)]+\))/g);
+                    for (const part of textParts) {
+                        const imgMatch = part.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+                        if (imgMatch) {
+                            const img = document.createElement('img');
+                            img.className = 'chat-img';
+                            img.src = imgMatch[2];
+                            img.alt = imgMatch[1];
+                            img.onclick = () => window.open(imgMatch[2], '_blank');
+                            contentEl.appendChild(img);
+                        } else if (part) {
+                            const span = document.createElement('span');
+                            span.textContent = part;
+                            contentEl.appendChild(span);
+                        }
+                    }
+                } else {
+                    const textNode = document.createElement('span');
+                    textNode.textContent = textContent;
+                    contentEl.appendChild(textNode);
+                }
             }
             for (const src of images) {
                 const img = document.createElement('img');
@@ -713,6 +738,27 @@
                                     chatArea.scrollTop = chatArea.scrollHeight;
                                 }
                             } catch {}
+                        }
+                    }
+                }
+
+                // Re-render with markdown images if present
+                if (/!\[.*\]\(.*\)/.test(fullContent)) {
+                    botContent.innerHTML = '';
+                    const parts = fullContent.split(/(!\[[^\]]*\]\([^)]+\))/g);
+                    for (const part of parts) {
+                        const imgMatch = part.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+                        if (imgMatch) {
+                            const img = document.createElement('img');
+                            img.className = 'chat-img';
+                            img.src = imgMatch[2];
+                            img.alt = imgMatch[1];
+                            img.onclick = () => window.open(imgMatch[2], '_blank');
+                            botContent.appendChild(img);
+                        } else if (part) {
+                            const span = document.createElement('span');
+                            span.textContent = part;
+                            botContent.appendChild(span);
                         }
                     }
                 }
