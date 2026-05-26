@@ -23,14 +23,30 @@ ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@example.com")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 
 MODELS = [
+    # Anthropic
+    "Claude-Opus-4.7",
     "Claude-Sonnet-4.6",
     "Claude-Haiku-4.5",
+    # OpenAI
+    "GPT-5.4",
     "GPT-4o",
     "GPT-4o-mini",
+    "GPT-Image-1.5",
+    # Google
+    "Gemini-3.1-Pro",
     "Gemini-2.5-Pro",
     "Gemini-2.5-Flash",
+    # xAI
+    "Grok-4",
+    "Grok-4.20-Multi-Agent",
+    # Meta
     "Llama-4-Maverick",
+    # DeepSeek
     "DeepSeek-R1",
+    # Image
+    "Nano-Banana-Pro",
+    # Video
+    "Veo-3.1",
 ]
 
 # ── Database ──
