@@ -13,7 +13,7 @@
             min-height: 100vh;
             padding: 40px;
         }
-        .container { max-width: 800px; margin: 0 auto; }
+        .container { max-width: 960px; margin: 0 auto; }
         h1 { font-size: 24px; margin-bottom: 8px; color: #fff; }
         .back { color: #6b5ce7; text-decoration: none; font-size: 14px; }
         .back:hover { text-decoration: underline; }
@@ -26,7 +26,7 @@
             overflow: hidden;
         }
         th, td {
-            padding: 14px 18px;
+            padding: 14px 16px;
             text-align: left;
             border-bottom: 1px solid #222;
         }
@@ -47,6 +47,17 @@
         .badge-approved { background: #1f3d2a; color: #a5f5b5; }
         .badge-pending { background: #3d3a1f; color: #f5e5a5; }
         .badge-admin { background: #1f2a3d; color: #a5c5f5; }
+        .stat {
+            font-size: 13px;
+            color: #aaa;
+            text-align: center;
+        }
+        .stat-num {
+            font-size: 18px;
+            font-weight: 700;
+            color: #fff;
+            display: block;
+        }
         .actions form { display: inline; }
         .actions button {
             padding: 5px 12px;
@@ -73,6 +84,9 @@
                 <tr>
                     <th>Email</th>
                     <th>Status</th>
+                    <th style="text-align:center">Chats</th>
+                    <th style="text-align:center">Sent</th>
+                    <th style="text-align:center">Replies</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -89,6 +103,9 @@
                         <span class="badge badge-pending">Pending</span>
                         {% endif %}
                     </td>
+                    <td class="stat"><span class="stat-num">{{ u.conv_count }}</span></td>
+                    <td class="stat"><span class="stat-num">{{ u.msg_count }}</span></td>
+                    <td class="stat"><span class="stat-num">{{ u.reply_count }}</span></td>
                     <td class="actions">
                         {% if not u.is_admin %}
                             {% if not u.approved %}
@@ -104,7 +121,7 @@
                                 <button class="delete">Delete</button>
                             </form>
                         {% else %}
-                        <span style="color:#555">—</span>
+                        <span style="color:#555">&mdash;</span>
                         {% endif %}
                     </td>
                 </tr>

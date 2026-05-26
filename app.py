@@ -205,7 +205,15 @@ def logout():
 @admin_required
 def admin():
     db = get_db()
-    users = db.execute("SELECT * FROM users ORDER BY created_at DESC").fetchall()
+    users = db.execute("""
+        SELECT u.*,
+            (SELECT COUNT(*) FROM conversations WHERE user_id = u.id) as conv_count,
+            (SELECT COUNT(*) FROM messages WHERE conversation_id IN
+                (SELECT id FROM conversations WHERE user_id = u.id) AND role = 'user') as msg_count,
+            (SELECT COUNT(*) FROM messages WHERE conversation_id IN
+                (SELECT id FROM conversations WHERE user_id = u.id) AND role = 'assistant') as reply_count
+        FROM users u ORDER BY u.created_at DESC
+    """).fetchall()
     return render_template("admin.html", users=users)
 
 @app.route("/admin/approve/<int:user_id>", methods=["POST"])
