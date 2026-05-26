@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poe Chat</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* ── Sidebar ── */
+        .sidebar {
+            width: 260px;
+            min-width: 260px;
+            background: #111;
+            border-right: 1px solid #1e1e1e;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .sidebar-header {
+            padding: 16px;
+            border-bottom: 1px solid #1e1e1e;
+        }
+        .new-chat-btn {
+            width: 100%;
+            padding: 10px;
+            background: #6b5ce7;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .new-chat-btn:hover { background: #5a4bd6; }
+        .conv-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+        .conv-item {
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            color: #bbb;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 2px;
+        }
+        .conv-item:hover { background: #1a1a1a; }
+        .conv-item.active { background: #1e1e1e; color: #fff; }
+        .conv-item .conv-title { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+        .conv-item .conv-delete {
+            opacity: 0;
+            background: none;
+            border: none;
+            color: #666;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 0 4px;
+        }
+        .conv-item:hover .conv-delete { opacity: 1; }
+        .conv-item .conv-delete:hover { color: #f5a5a5; }
+
+        .sidebar-footer {
+            padding: 12px 16px;
+            border-top: 1px solid #1e1e1e;
+            font-size: 13px;
+        }
+        .sidebar-footer .user-info {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .sidebar-footer .user-email {
+            color: #888;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+        }
+        .sidebar-footer a {
+            color: #6b5ce7;
+            text-decoration: none;
+            font-size: 12px;
+            white-space: nowrap;
+            margin-left: 8px;
+        }
+        .sidebar-footer a:hover { text-decoration: underline; }
+
+        /* ── Main ── */
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .main-header {
+            padding: 12px 20px;
+            border-bottom: 1px solid #1e1e1e;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: #0f0f0f;
+        }
+        .model-select {
+            background: #1a1a1a;
+            color: #e0e0e0;
+            border: 1px solid #2a2a2a;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+        .model-select:focus { outline: none; border-color: #6b5ce7; }
+        .model-label {
+            font-size: 15px;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        /* ── Chat area ── */
+        .chat-area {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        .messages {
+            max-width: 760px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 24px 20px;
+            flex: 1;
+        }
+        .message {
+            margin-bottom: 24px;
+            display: flex;
+            gap: 14px;
+        }
+        .message .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 700;
+        }
+        .message.user-msg .avatar {
+            background: #2563eb;
+            color: #fff;
+        }
+        .message.bot-msg .avatar {
+            background: #6b5ce7;
+            color: #fff;
+        }
+        .message .content {
+            flex: 1;
+            line-height: 1.7;
+            font-size: 15px;
+            padding-top: 4px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .message.user-msg .content { color: #e0e0e0; }
+        .message.bot-msg .content { color: #d0d0d0; }
+
+        .empty-state {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            color: #444;
+            gap: 12px;
+        }
+        .empty-state .logo {
+            font-size: 48px;
+            font-weight: 800;
+            color: #6b5ce7;
+        }
+        .empty-state p { font-size: 15px; }
+
+        /* ── Input area ── */
+        .input-area {
+            padding: 16px 20px 24px;
+            background: #0a0a0a;
+        }
+        .input-wrapper {
+            max-width: 760px;
+            margin: 0 auto;
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+        .input-wrapper textarea {
+            flex: 1;
+            background: #151515;
+            border: 1px solid #2a2a2a;
+            color: #e0e0e0;
+            padding: 14px 16px;
+            border-radius: 12px;
+            font-size: 15px;
+            resize: none;
+            min-height: 50px;
+            max-height: 160px;
+            font-family: inherit;
+            line-height: 1.5;
+        }
+        .input-wrapper textarea:focus { outline: none; border-color: #6b5ce7; }
+        .send-btn {
+            background: #6b5ce7;
+            color: #fff;
+            border: none;
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .send-btn:hover:not(:disabled) { background: #5a4bd6; }
+        .send-btn svg { width: 20px; height: 20px; }
+
+        /* scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+
+        /* mobile */
+        @media (max-width: 768px) {
+            .sidebar { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <button class="new-chat-btn" onclick="newChat()">+ New Chat</button>
+        </div>
+        <div class="conv-list" id="conv-list">
+            {% for c in conversations %}
+            <div class="conv-item" data-id="{{ c.id }}" onclick="loadConversation({{ c.id }})">
+                <span class="conv-title">{{ c.title }}</span>
+                <button class="conv-delete" onclick="event.stopPropagation(); deleteConversation({{ c.id }})">&times;</button>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <span class="user-email">{{ user.email }}</span>
+                {% if user.is_admin %}
+                <a href="/admin">Admin</a>
+                {% endif %}
+                <a href="/logout">Logout</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main -->
+    <div class="main">
+        <div class="main-header">
+            <span class="model-label" id="model-label">Select a model</span>
+            <select class="model-select" id="model-select" onchange="changeModel()">
+                {% for m in models %}
+                <option value="{{ m }}">{{ m }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="chat-area" id="chat-area">
+            <div class="empty-state" id="empty-state">
+                <div class="logo">Poe</div>
+                <p>Start a new conversation</p>
+            </div>
+            <div class="messages" id="messages" style="display:none;"></div>
+        </div>
+        <div class="input-area">
+            <div class="input-wrapper">
+                <textarea id="msg-input" placeholder="Send a message..." rows="1"></textarea>
+                <button class="send-btn" id="send-btn" onclick="sendMessage()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const msgInput = document.getElementById('msg-input');
+        const sendBtn = document.getElementById('send-btn');
+        const messagesDiv = document.getElementById('messages');
+        const emptyState = document.getElementById('empty-state');
+        const chatArea = document.getElementById('chat-area');
+        const modelSelect = document.getElementById('model-select');
+        const modelLabel = document.getElementById('model-label');
+        const convList = document.getElementById('conv-list');
+
+        let currentConvId = null;
+        let isStreaming = false;
+
+        // Auto-resize textarea
+        msgInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 160) + 'px';
+        });
+        msgInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        function setActiveConv(id) {
+            document.querySelectorAll('.conv-item').forEach(el => el.classList.remove('active'));
+            if (id) {
+                const el = document.querySelector(`.conv-item[data-id="${id}"]`);
+                if (el) el.classList.add('active');
+            }
+        }
+
+        async function newChat() {
+            const model = modelSelect.value;
+            const res = await fetch('/conversation/new', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({model}),
+            });
+            const data = await res.json();
+            currentConvId = data.id;
+
+            // Add to sidebar
+            const item = document.createElement('div');
+            item.className = 'conv-item active';
+            item.dataset.id = data.id;
+            item.onclick = () => loadConversation(data.id);
+            item.innerHTML = `<span class="conv-title">New Chat</span><button class="conv-delete" onclick="event.stopPropagation(); deleteConversation(${data.id})">&times;</button>`;
+            convList.prepend(item);
+            setActiveConv(data.id);
+
+            // Clear messages
+            messagesDiv.innerHTML = '';
+            messagesDiv.style.display = 'block';
+            emptyState.style.display = 'none';
+            msgInput.focus();
+        }
+
+        async function loadConversation(id) {
+            const res = await fetch(`/conversation/${id}`);
+            const data = await res.json();
+            if (data.error) return;
+
+            currentConvId = id;
+            modelSelect.value = data.model;
+            setActiveConv(id);
+
+            messagesDiv.innerHTML = '';
+            messagesDiv.style.display = 'block';
+            emptyState.style.display = 'none';
+
+            for (const msg of data.messages) {
+                appendMessage(msg.role, msg.content);
+            }
+            chatArea.scrollTop = chatArea.scrollHeight;
+            msgInput.focus();
+        }
+
+        async function deleteConversation(id) {
+            await fetch(`/conversation/${id}`, {method: 'DELETE'});
+            const el = document.querySelector(`.conv-item[data-id="${id}"]`);
+            if (el) el.remove();
+            if (currentConvId === id) {
+                currentConvId = null;
+                messagesDiv.innerHTML = '';
+                messagesDiv.style.display = 'none';
+                emptyState.style.display = 'flex';
+            }
+        }
+
+        async function changeModel() {
+            if (!currentConvId) return;
+            await fetch(`/conversation/${currentConvId}/model`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({model: modelSelect.value}),
+            });
+        }
+
+        function appendMessage(role, content) {
+            const div = document.createElement('div');
+            const isUser = role === 'user';
+            div.className = `message ${isUser ? 'user-msg' : 'bot-msg'}`;
+            div.innerHTML = `
+                <div class="avatar">${isUser ? 'U' : 'AI'}</div>
+                <div class="content"></div>
+            `;
+            div.querySelector('.content').textContent = content;
+            messagesDiv.appendChild(div);
+            return div.querySelector('.content');
+        }
+
+        async function sendMessage() {
+            const text = msgInput.value.trim();
+            if (!text || isStreaming) return;
+
+            // Auto-create conversation if needed
+            if (!currentConvId) {
+                await newChat();
+            }
+
+            isStreaming = true;
+            sendBtn.disabled = true;
+            msgInput.value = '';
+            msgInput.style.height = 'auto';
+
+            appendMessage('user', text);
+            chatArea.scrollTop = chatArea.scrollHeight;
+
+            // Create bot message placeholder
+            const botContent = appendMessage('assistant', '');
+            let fullContent = '';
+
+            try {
+                const res = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        conversation_id: currentConvId,
+                        message: text,
+                        model: modelSelect.value,
+                    }),
+                });
+
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const {done, value} = await reader.read();
+                    if (done) break;
+                    const lines = decoder.decode(value).split('\n');
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const data = line.slice(6);
+                            if (data === '[DONE]') break;
+                            try {
+                                const parsed = JSON.parse(data);
+                                if (parsed.error) {
+                                    botContent.textContent = 'Error: ' + parsed.error;
+                                } else if (parsed.content) {
+                                    fullContent += parsed.content;
+                                    botContent.textContent = fullContent;
+                                    chatArea.scrollTop = chatArea.scrollHeight;
+                                }
+                            } catch {}
+                        }
+                    }
+                }
+
+                // Update sidebar title
+                const titleEl = document.querySelector(`.conv-item[data-id="${currentConvId}"] .conv-title`);
+                if (titleEl && titleEl.textContent === 'New Chat') {
+                    titleEl.textContent = text.substring(0, 40) + (text.length > 40 ? '...' : '');
+                }
+            } catch (err) {
+                botContent.textContent = 'Connection error: ' + err.message;
+            }
+
+            isStreaming = false;
+            sendBtn.disabled = false;
+            msgInput.focus();
+        }
+
+        msgInput.focus();
+    </script>
+</body>
+</html>

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Poe Chat</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 40px;
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { font-size: 24px; margin-bottom: 8px; color: #fff; }
+        .back { color: #6b5ce7; text-decoration: none; font-size: 14px; }
+        .back:hover { text-decoration: underline; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 24px;
+            background: #151515;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        th, td {
+            padding: 14px 18px;
+            text-align: left;
+            border-bottom: 1px solid #222;
+        }
+        th {
+            background: #1a1a1a;
+            color: #888;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        td { font-size: 14px; }
+        .badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .badge-approved { background: #1f3d2a; color: #a5f5b5; }
+        .badge-pending { background: #3d3a1f; color: #f5e5a5; }
+        .badge-admin { background: #1f2a3d; color: #a5c5f5; }
+        .actions form { display: inline; }
+        .actions button {
+            padding: 5px 12px;
+            border: 1px solid #333;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            background: #1e1e1e;
+            color: #e0e0e0;
+            margin-right: 4px;
+        }
+        .actions .approve { border-color: #2a6b3a; color: #a5f5b5; }
+        .actions .revoke { border-color: #6b6b2a; color: #f5e5a5; }
+        .actions .delete { border-color: #6b2a2a; color: #f5a5a5; }
+        .actions button:hover { opacity: 0.8; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back">&larr; Back to Chat</a>
+        <h1>User Management</h1>
+        <table>
+            <thead>
+                <tr>
+                    <th>Email</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                <tr>
+                    <td>{{ u.email }}</td>
+                    <td>
+                        {% if u.is_admin %}
+                        <span class="badge badge-admin">Admin</span>
+                        {% elif u.approved %}
+                        <span class="badge badge-approved">Approved</span>
+                        {% else %}
+                        <span class="badge badge-pending">Pending</span>
+                        {% endif %}
+                    </td>
+                    <td class="actions">
+                        {% if not u.is_admin %}
+                            {% if not u.approved %}
+                            <form method="POST" action="/admin/approve/{{ u.id }}">
+                                <button class="approve">Approve</button>
+                            </form>
+                            {% else %}
+                            <form method="POST" action="/admin/revoke/{{ u.id }}">
+                                <button class="revoke">Revoke</button>
+                            </form>
+                            {% endif %}
+                            <form method="POST" action="/admin/delete/{{ u.id }}" onsubmit="return confirm('Delete this user?')">
+                                <button class="delete">Delete</button>
+                            </form>
+                        {% else %}
+                        <span style="color:#555">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
