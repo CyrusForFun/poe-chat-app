@@ -4,10 +4,8 @@ from functools import wraps
 import openai
 import json
 import os
-import sqlite3
-import base64
-import time
-
+import psycopg2
+import psycopg2.extras
 from datetime import timedelta
 
 app = Flask(__name__)
@@ -15,7 +13,7 @@ app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024  # 20MB max upload
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
 
-DATABASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db.sqlite3")
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 client = openai.OpenAI(
     api_key=os.environ.get("POE_API_KEY"),
@@ -56,9 +54,26 @@ MODELS = [
 
 def get_db():
     if "db" not in g:
-        g.db = sqlite3.connect(DATABASE)
-        g.db.row_factory = sqlite3.Row
+        g.db = psycopg2.connect(DATABASE_URL)
+        g.db.autocommit = False
     return g.db
+
+def db_execute(query, params=None):
+    db = get_db()
+    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute(query, params)
+    return cur
+
+def db_fetchone(query, params=None):
+    cur = db_execute(query, params)
+    return cur.fetchone()
+
+def db_fetchall(query, params=None):
+    cur = db_execute(query, params)
+    return cur.fetchall()
+
+def db_commit():
+    get_db().commit()
 
 @app.teardown_appcontext
 def close_db(exc):
@@ -67,42 +82,47 @@ def close_db(exc):
         db.close()
 
 def init_db():
-    db = sqlite3.connect(DATABASE)
-    db.executescript("""
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             email TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
             approved INTEGER DEFAULT 0,
             is_admin INTEGER DEFAULT 0,
-            created_at REAL DEFAULT (unixepoch())
-        );
-        CREATE TABLE IF NOT EXISTS conversations (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            title TEXT DEFAULT 'New Chat',
-            model TEXT DEFAULT 'Claude-Sonnet-4.6',
-            created_at REAL DEFAULT (unixepoch()),
-            FOREIGN KEY (user_id) REFERENCES users(id)
-        );
-        CREATE TABLE IF NOT EXISTS messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            conversation_id INTEGER NOT NULL,
-            role TEXT NOT NULL,
-            content TEXT NOT NULL,
-            created_at REAL DEFAULT (unixepoch()),
-            FOREIGN KEY (conversation_id) REFERENCES conversations(id)
+            created_at TIMESTAMPTZ DEFAULT NOW()
         );
     """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS conversations (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            title TEXT DEFAULT 'New Chat',
+            model TEXT DEFAULT 'GPT-4o',
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        );
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS messages (
+            id SERIAL PRIMARY KEY,
+            conversation_id INTEGER NOT NULL REFERENCES conversations(id),
+            role TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at TIMESTAMPTZ DEFAULT NOW()
+        );
+    """)
+    conn.commit()
     # Ensure admin exists
-    admin = db.execute("SELECT id FROM users WHERE email = ?", (ADMIN_EMAIL,)).fetchone()
-    if not admin:
-        db.execute(
-            "INSERT INTO users (email, password_hash, approved, is_admin) VALUES (?, ?, 1, 1)",
+    cur.execute("SELECT id FROM users WHERE email = %s", (ADMIN_EMAIL,))
+    if not cur.fetchone():
+        cur.execute(
+            "INSERT INTO users (email, password_hash, approved, is_admin) VALUES (%s, %s, 1, 1)",
             (ADMIN_EMAIL, generate_password_hash(ADMIN_PASSWORD)),
         )
-        db.commit()
-    db.close()
+        conn.commit()
+    cur.close()
+    conn.close()
 
 init_db()
 
@@ -113,8 +133,7 @@ def login_required(f):
     def decorated(*args, **kwargs):
         if "user_id" not in session:
             return redirect(url_for("login"))
-        db = get_db()
-        user = db.execute("SELECT * FROM users WHERE id = ?", (session["user_id"],)).fetchone()
+        user = db_fetchone("SELECT * FROM users WHERE id = %s", (session["user_id"],))
         if not user or not user["approved"]:
             session.clear()
             return redirect(url_for("login"))
@@ -127,8 +146,7 @@ def admin_required(f):
     def decorated(*args, **kwargs):
         if "user_id" not in session:
             return redirect(url_for("login"))
-        db = get_db()
-        user = db.execute("SELECT * FROM users WHERE id = ?", (session["user_id"],)).fetchone()
+        user = db_fetchone("SELECT * FROM users WHERE id = %s", (session["user_id"],))
         if not user or not user["is_admin"]:
             return redirect(url_for("index"))
         g.user = user
@@ -143,8 +161,7 @@ def login():
     if request.method == "POST":
         email = request.form["email"].strip().lower()
         password = request.form["password"]
-        db = get_db()
-        user = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+        user = db_fetchone("SELECT * FROM users WHERE email = %s", (email,))
         if not user or not check_password_hash(user["password_hash"], password):
             error = "Invalid email or password."
         elif not user["approved"]:
@@ -165,16 +182,15 @@ def register():
         if len(password) < 6:
             error = "Password must be at least 6 characters."
         else:
-            db = get_db()
-            existing = db.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+            existing = db_fetchone("SELECT id FROM users WHERE email = %s", (email,))
             if existing:
                 error = "Email already registered."
             else:
-                db.execute(
-                    "INSERT INTO users (email, password_hash) VALUES (?, ?)",
+                db_execute(
+                    "INSERT INTO users (email, password_hash) VALUES (%s, %s)",
                     (email, generate_password_hash(password)),
                 )
-                db.commit()
+                db_commit()
                 success = True
     return render_template("register.html", error=error, success=success)
 
@@ -186,15 +202,14 @@ def change_password():
     if request.method == "POST":
         current = request.form["current_password"]
         new_pw = request.form["new_password"]
-        db = get_db()
-        user = db.execute("SELECT * FROM users WHERE id = ?", (session["user_id"],)).fetchone()
+        user = db_fetchone("SELECT * FROM users WHERE id = %s", (session["user_id"],))
         if not check_password_hash(user["password_hash"], current):
             error = "Current password is incorrect."
         elif len(new_pw) < 6:
             error = "New password must be at least 6 characters."
         else:
-            db.execute("UPDATE users SET password_hash = ? WHERE id = ?", (generate_password_hash(new_pw), session["user_id"]))
-            db.commit()
+            db_execute("UPDATE users SET password_hash = %s WHERE id = %s", (generate_password_hash(new_pw), session["user_id"]))
+            db_commit()
             success = True
     return render_template("change_password.html", error=error, success=success)
 
@@ -212,8 +227,7 @@ def logout():
 @app.route("/admin")
 @admin_required
 def admin():
-    db = get_db()
-    users = db.execute("""
+    users = db_fetchall("""
         SELECT u.*,
             (SELECT COUNT(*) FROM conversations WHERE user_id = u.id) as conv_count,
             (SELECT COUNT(*) FROM messages WHERE conversation_id IN
@@ -221,33 +235,30 @@ def admin():
             (SELECT COUNT(*) FROM messages WHERE conversation_id IN
                 (SELECT id FROM conversations WHERE user_id = u.id) AND role = 'assistant') as reply_count
         FROM users u ORDER BY u.created_at DESC
-    """).fetchall()
+    """)
     return render_template("admin.html", users=users)
 
 @app.route("/admin/approve/<int:user_id>", methods=["POST"])
 @admin_required
 def approve_user(user_id):
-    db = get_db()
-    db.execute("UPDATE users SET approved = 1 WHERE id = ?", (user_id,))
-    db.commit()
+    db_execute("UPDATE users SET approved = 1 WHERE id = %s", (user_id,))
+    db_commit()
     return redirect(url_for("admin"))
 
 @app.route("/admin/revoke/<int:user_id>", methods=["POST"])
 @admin_required
 def revoke_user(user_id):
-    db = get_db()
-    db.execute("UPDATE users SET approved = 0 WHERE id = ? AND is_admin = 0", (user_id,))
-    db.commit()
+    db_execute("UPDATE users SET approved = 0 WHERE id = %s AND is_admin = 0", (user_id,))
+    db_commit()
     return redirect(url_for("admin"))
 
 @app.route("/admin/delete/<int:user_id>", methods=["POST"])
 @admin_required
 def delete_user(user_id):
-    db = get_db()
-    db.execute("DELETE FROM messages WHERE conversation_id IN (SELECT id FROM conversations WHERE user_id = ?)", (user_id,))
-    db.execute("DELETE FROM conversations WHERE user_id = ?", (user_id,))
-    db.execute("DELETE FROM users WHERE id = ? AND is_admin = 0", (user_id,))
-    db.commit()
+    db_execute("DELETE FROM messages WHERE conversation_id IN (SELECT id FROM conversations WHERE user_id = %s)", (user_id,))
+    db_execute("DELETE FROM conversations WHERE user_id = %s", (user_id,))
+    db_execute("DELETE FROM users WHERE id = %s AND is_admin = 0", (user_id,))
+    db_commit()
     return redirect(url_for("admin"))
 
 # ── Chat ──
@@ -255,40 +266,37 @@ def delete_user(user_id):
 @app.route("/")
 @login_required
 def index():
-    db = get_db()
-    conversations = db.execute(
-        "SELECT * FROM conversations WHERE user_id = ? ORDER BY created_at DESC",
+    conversations = db_fetchall(
+        "SELECT * FROM conversations WHERE user_id = %s ORDER BY created_at DESC",
         (session["user_id"],),
-    ).fetchall()
+    )
     return render_template("chat.html", models=MODELS, conversations=conversations, user=g.user)
 
 @app.route("/conversation/new", methods=["POST"])
 @login_required
 def new_conversation():
     data = request.json
-    model = data.get("model", "Claude-Sonnet-4.6")
-    db = get_db()
-    cur = db.execute(
-        "INSERT INTO conversations (user_id, model) VALUES (?, ?)",
+    model = data.get("model", "GPT-4o")
+    row = db_fetchone(
+        "INSERT INTO conversations (user_id, model) VALUES (%s, %s) RETURNING id",
         (session["user_id"], model),
     )
-    db.commit()
-    return jsonify({"id": cur.lastrowid})
+    db_commit()
+    return jsonify({"id": row["id"]})
 
 @app.route("/conversation/<int:conv_id>")
 @login_required
 def get_conversation(conv_id):
-    db = get_db()
-    conv = db.execute(
-        "SELECT * FROM conversations WHERE id = ? AND user_id = ?",
+    conv = db_fetchone(
+        "SELECT * FROM conversations WHERE id = %s AND user_id = %s",
         (conv_id, session["user_id"]),
-    ).fetchone()
+    )
     if not conv:
         return jsonify({"error": "not found"}), 404
-    msgs = db.execute(
-        "SELECT role, content FROM messages WHERE conversation_id = ? ORDER BY created_at",
+    msgs = db_fetchall(
+        "SELECT role, content FROM messages WHERE conversation_id = %s ORDER BY created_at",
         (conv_id,),
-    ).fetchall()
+    )
     return jsonify({
         "id": conv["id"],
         "title": conv["title"],
@@ -300,21 +308,19 @@ def get_conversation(conv_id):
 @login_required
 def update_model(conv_id):
     data = request.json
-    db = get_db()
-    db.execute(
-        "UPDATE conversations SET model = ? WHERE id = ? AND user_id = ?",
+    db_execute(
+        "UPDATE conversations SET model = %s WHERE id = %s AND user_id = %s",
         (data["model"], conv_id, session["user_id"]),
     )
-    db.commit()
+    db_commit()
     return jsonify({"ok": True})
 
 @app.route("/conversation/<int:conv_id>", methods=["DELETE"])
 @login_required
 def delete_conversation(conv_id):
-    db = get_db()
-    db.execute("DELETE FROM messages WHERE conversation_id = ? AND conversation_id IN (SELECT id FROM conversations WHERE user_id = ?)", (conv_id, session["user_id"]))
-    db.execute("DELETE FROM conversations WHERE id = ? AND user_id = ?", (conv_id, session["user_id"]))
-    db.commit()
+    db_execute("DELETE FROM messages WHERE conversation_id = %s AND conversation_id IN (SELECT id FROM conversations WHERE user_id = %s)", (conv_id, session["user_id"]))
+    db_execute("DELETE FROM conversations WHERE id = %s AND user_id = %s", (conv_id, session["user_id"]))
+    db_commit()
     return jsonify({"ok": True})
 
 @app.route("/chat", methods=["POST"])
@@ -323,46 +329,44 @@ def chat():
     data = request.json
     conv_id = data.get("conversation_id")
     user_message = data.get("message", "")
-    images = data.get("images", [])  # list of base64 data URIs
-    model = data.get("model", "Claude-Sonnet-4.6")
+    images = data.get("images", [])
+    model = data.get("model", "GPT-4o")
 
-    db = get_db()
-    conv = db.execute(
-        "SELECT * FROM conversations WHERE id = ? AND user_id = ?",
+    conv = db_fetchone(
+        "SELECT * FROM conversations WHERE id = %s AND user_id = %s",
         (conv_id, session["user_id"]),
-    ).fetchone()
+    )
     if not conv:
         return jsonify({"error": "not found"}), 404
 
-    # Build content for storage (text + image markers)
+    # Build content for storage
     storage_content = user_message
     if images:
         storage_content = json.dumps({"text": user_message, "images": images})
 
     # Save user message
-    db.execute(
-        "INSERT INTO messages (conversation_id, role, content) VALUES (?, 'user', ?)",
+    db_execute(
+        "INSERT INTO messages (conversation_id, role, content) VALUES (%s, 'user', %s)",
         (conv_id, storage_content),
     )
 
     # Auto-title on first message
-    msg_count = db.execute("SELECT COUNT(*) as c FROM messages WHERE conversation_id = ?", (conv_id,)).fetchone()["c"]
-    if msg_count == 1:
+    row = db_fetchone("SELECT COUNT(*) as c FROM messages WHERE conversation_id = %s", (conv_id,))
+    if row["c"] == 1:
         title_text = user_message or "Image"
         title = title_text[:40] + ("..." if len(title_text) > 40 else "")
-        db.execute("UPDATE conversations SET title = ? WHERE id = ?", (title, conv_id))
-    db.commit()
+        db_execute("UPDATE conversations SET title = %s WHERE id = %s", (title, conv_id))
+    db_commit()
 
-    # Get full history and build API messages
-    msgs = db.execute(
-        "SELECT role, content FROM messages WHERE conversation_id = ? ORDER BY created_at",
+    # Get full history
+    msgs = db_fetchall(
+        "SELECT role, content FROM messages WHERE conversation_id = %s ORDER BY created_at",
         (conv_id,),
-    ).fetchall()
+    )
 
     api_messages = []
     for m in msgs:
         content_raw = m["content"]
-        # Try parsing as JSON (multimodal message)
         try:
             parsed = json.loads(content_raw)
             if isinstance(parsed, dict) and "images" in parsed:
@@ -390,14 +394,16 @@ def chat():
                     content = chunk.choices[0].delta.content
                     full_response += content
                     yield f"data: {json.dumps({'content': content})}\n\n"
-            # Save assistant response
-            db2 = sqlite3.connect(DATABASE)
-            db2.execute(
-                "INSERT INTO messages (conversation_id, role, content) VALUES (?, 'assistant', ?)",
+            # Save assistant response with a new connection
+            conn = psycopg2.connect(DATABASE_URL)
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO messages (conversation_id, role, content) VALUES (%s, 'assistant', %s)",
                 (conv_id, full_response),
             )
-            db2.commit()
-            db2.close()
+            conn.commit()
+            cur.close()
+            conn.close()
             yield "data: [DONE]\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
