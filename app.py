@@ -5,10 +5,12 @@ import openai
 import json
 import os
 import sqlite3
+import base64
 import time
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
+app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024  # 20MB max upload
 
 DATABASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db.sqlite3")
 
@@ -268,6 +270,7 @@ def chat():
     data = request.json
     conv_id = data.get("conversation_id")
     user_message = data.get("message", "")
+    images = data.get("images", [])  # list of base64 data URIs
     model = data.get("model", "Claude-Sonnet-4.6")
 
     db = get_db()
@@ -278,32 +281,55 @@ def chat():
     if not conv:
         return jsonify({"error": "not found"}), 404
 
+    # Build content for storage (text + image markers)
+    storage_content = user_message
+    if images:
+        storage_content = json.dumps({"text": user_message, "images": images})
+
     # Save user message
     db.execute(
         "INSERT INTO messages (conversation_id, role, content) VALUES (?, 'user', ?)",
-        (conv_id, user_message),
+        (conv_id, storage_content),
     )
 
     # Auto-title on first message
     msg_count = db.execute("SELECT COUNT(*) as c FROM messages WHERE conversation_id = ?", (conv_id,)).fetchone()["c"]
     if msg_count == 1:
-        title = user_message[:40] + ("..." if len(user_message) > 40 else "")
+        title_text = user_message or "Image"
+        title = title_text[:40] + ("..." if len(title_text) > 40 else "")
         db.execute("UPDATE conversations SET title = ? WHERE id = ?", (title, conv_id))
     db.commit()
 
-    # Get full history
+    # Get full history and build API messages
     msgs = db.execute(
         "SELECT role, content FROM messages WHERE conversation_id = ? ORDER BY created_at",
         (conv_id,),
     ).fetchall()
-    messages = [{"role": m["role"], "content": m["content"]} for m in msgs]
+
+    api_messages = []
+    for m in msgs:
+        content_raw = m["content"]
+        # Try parsing as JSON (multimodal message)
+        try:
+            parsed = json.loads(content_raw)
+            if isinstance(parsed, dict) and "images" in parsed:
+                parts = []
+                if parsed.get("text"):
+                    parts.append({"type": "text", "text": parsed["text"]})
+                for img_uri in parsed["images"]:
+                    parts.append({"type": "image_url", "image_url": {"url": img_uri}})
+                api_messages.append({"role": m["role"], "content": parts})
+                continue
+        except (json.JSONDecodeError, TypeError):
+            pass
+        api_messages.append({"role": m["role"], "content": content_raw})
 
     def generate():
         full_response = ""
         try:
             stream = client.chat.completions.create(
                 model=model,
-                messages=messages,
+                messages=api_messages,
                 stream=True,
             )
             for chunk in stream:

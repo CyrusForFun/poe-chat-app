@@ -184,6 +184,15 @@
         }
         .message.user-msg .content { color: #e0e0e0; }
         .message.bot-msg .content { color: #d0d0d0; }
+        .message .content img.chat-img {
+            max-width: 300px;
+            max-height: 300px;
+            border-radius: 8px;
+            margin-top: 8px;
+            display: block;
+            cursor: pointer;
+        }
+        .message .content img.chat-img:hover { opacity: 0.85; }
 
         .empty-state {
             flex: 1;
@@ -206,13 +215,68 @@
             padding: 16px 20px 24px;
             background: #0a0a0a;
         }
-        .input-wrapper {
+        .input-box {
             max-width: 760px;
             margin: 0 auto;
+        }
+        /* Preview bar */
+        .preview-bar {
             display: flex;
-            gap: 10px;
+            gap: 8px;
+            padding: 8px 8px 0;
+            flex-wrap: wrap;
+        }
+        .preview-bar:empty { display: none; }
+        .preview-item {
+            position: relative;
+            width: 64px;
+            height: 64px;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #333;
+        }
+        .preview-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .preview-item .remove-btn {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 18px;
+            height: 18px;
+            background: rgba(0,0,0,0.7);
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+        .input-wrapper {
+            display: flex;
+            gap: 8px;
             align-items: flex-end;
         }
+        .toolbar-btn {
+            background: #1a1a1a;
+            border: 1px solid #2a2a2a;
+            color: #999;
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .toolbar-btn:hover { color: #e0e0e0; border-color: #6b5ce7; }
+        .toolbar-btn svg { width: 20px; height: 20px; }
         .input-wrapper textarea {
             flex: 1;
             background: #151515;
@@ -244,6 +308,9 @@
         .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
         .send-btn:hover:not(:disabled) { background: #5a4bd6; }
         .send-btn svg { width: 20px; height: 20px; }
+
+        /* hidden inputs */
+        .hidden { display: none; }
 
         /* scrollbar */
         ::-webkit-scrollbar { width: 6px; }
@@ -299,11 +366,24 @@
             <div class="messages" id="messages" style="display:none;"></div>
         </div>
         <div class="input-area">
-            <div class="input-wrapper">
-                <textarea id="msg-input" placeholder="Send a message..." rows="1"></textarea>
-                <button class="send-btn" id="send-btn" onclick="sendMessage()">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                </button>
+            <div class="input-box">
+                <div class="preview-bar" id="preview-bar"></div>
+                <div class="input-wrapper">
+                    <!-- Upload file -->
+                    <input type="file" id="file-input" class="hidden" accept="image/*" multiple>
+                    <button class="toolbar-btn" onclick="document.getElementById('file-input').click()" title="Upload image">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                    </button>
+                    <!-- Camera -->
+                    <input type="file" id="camera-input" class="hidden" accept="image/*" capture="environment">
+                    <button class="toolbar-btn" onclick="document.getElementById('camera-input').click()" title="Take photo">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                    </button>
+                    <textarea id="msg-input" placeholder="Send a message..." rows="1"></textarea>
+                    <button class="send-btn" id="send-btn" onclick="sendMessage()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -315,13 +395,49 @@
         const emptyState = document.getElementById('empty-state');
         const chatArea = document.getElementById('chat-area');
         const modelSelect = document.getElementById('model-select');
-        const modelLabel = document.getElementById('model-label');
         const convList = document.getElementById('conv-list');
+        const previewBar = document.getElementById('preview-bar');
+        const fileInput = document.getElementById('file-input');
+        const cameraInput = document.getElementById('camera-input');
 
         let currentConvId = null;
         let isStreaming = false;
+        let pendingImages = []; // base64 data URIs
 
-        // Auto-resize textarea
+        // ── File / Camera handling ──
+        fileInput.addEventListener('change', handleFiles);
+        cameraInput.addEventListener('change', handleFiles);
+
+        function handleFiles(e) {
+            const files = e.target.files;
+            for (const file of files) {
+                if (!file.type.startsWith('image/')) continue;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    pendingImages.push(ev.target.result);
+                    renderPreviews();
+                };
+                reader.readAsDataURL(file);
+            }
+            e.target.value = '';
+        }
+
+        function renderPreviews() {
+            previewBar.innerHTML = '';
+            pendingImages.forEach((src, i) => {
+                const item = document.createElement('div');
+                item.className = 'preview-item';
+                item.innerHTML = `<img src="${src}"><button class="remove-btn" onclick="removePreview(${i})">&times;</button>`;
+                previewBar.appendChild(item);
+            });
+        }
+
+        function removePreview(index) {
+            pendingImages.splice(index, 1);
+            renderPreviews();
+        }
+
+        // ── Textarea ──
         msgInput.addEventListener('input', function() {
             this.style.height = 'auto';
             this.style.height = Math.min(this.scrollHeight, 160) + 'px';
@@ -333,6 +449,42 @@
             }
         });
 
+        // ── Paste image from clipboard ──
+        msgInput.addEventListener('paste', function(e) {
+            const items = e.clipboardData?.items;
+            if (!items) return;
+            for (const item of items) {
+                if (item.type.startsWith('image/')) {
+                    e.preventDefault();
+                    const file = item.getAsFile();
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        pendingImages.push(ev.target.result);
+                        renderPreviews();
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+        });
+
+        // ── Drag and drop ──
+        const inputArea = document.querySelector('.input-area');
+        inputArea.addEventListener('dragover', (e) => { e.preventDefault(); });
+        inputArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const files = e.dataTransfer.files;
+            for (const file of files) {
+                if (!file.type.startsWith('image/')) continue;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    pendingImages.push(ev.target.result);
+                    renderPreviews();
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // ── Conversation management ──
         function setActiveConv(id) {
             document.querySelectorAll('.conv-item').forEach(el => el.classList.remove('active'));
             if (id) {
@@ -350,8 +502,6 @@
             });
             const data = await res.json();
             currentConvId = data.id;
-
-            // Add to sidebar
             const item = document.createElement('div');
             item.className = 'conv-item active';
             item.dataset.id = data.id;
@@ -359,8 +509,6 @@
             item.innerHTML = `<span class="conv-title">New Chat</span><button class="conv-delete" onclick="event.stopPropagation(); deleteConversation(${data.id})">&times;</button>`;
             convList.prepend(item);
             setActiveConv(data.id);
-
-            // Clear messages
             messagesDiv.innerHTML = '';
             messagesDiv.style.display = 'block';
             emptyState.style.display = 'none';
@@ -371,15 +519,12 @@
             const res = await fetch(`/conversation/${id}`);
             const data = await res.json();
             if (data.error) return;
-
             currentConvId = id;
             modelSelect.value = data.model;
             setActiveConv(id);
-
             messagesDiv.innerHTML = '';
             messagesDiv.style.display = 'block';
             emptyState.style.display = 'none';
-
             for (const msg of data.messages) {
                 appendMessage(msg.role, msg.content);
             }
@@ -408,6 +553,7 @@
             });
         }
 
+        // ── Message rendering ──
         function appendMessage(role, content) {
             const div = document.createElement('div');
             const isUser = role === 'user';
@@ -416,29 +562,60 @@
                 <div class="avatar">${isUser ? 'U' : 'AI'}</div>
                 <div class="content"></div>
             `;
-            div.querySelector('.content').textContent = content;
+            const contentEl = div.querySelector('.content');
+
+            // Try parsing multimodal content
+            let textContent = content;
+            let images = [];
+            try {
+                const parsed = JSON.parse(content);
+                if (parsed && parsed.images) {
+                    textContent = parsed.text || '';
+                    images = parsed.images || [];
+                }
+            } catch {}
+
+            if (textContent) {
+                const textNode = document.createElement('span');
+                textNode.textContent = textContent;
+                contentEl.appendChild(textNode);
+            }
+            for (const src of images) {
+                const img = document.createElement('img');
+                img.className = 'chat-img';
+                img.src = src;
+                img.onclick = () => window.open(src, '_blank');
+                contentEl.appendChild(img);
+            }
+
             messagesDiv.appendChild(div);
-            return div.querySelector('.content');
+            return contentEl;
         }
 
+        // ── Send message ──
         async function sendMessage() {
             const text = msgInput.value.trim();
-            if (!text || isStreaming) return;
+            const images = [...pendingImages];
+            if ((!text && images.length === 0) || isStreaming) return;
 
-            // Auto-create conversation if needed
-            if (!currentConvId) {
-                await newChat();
-            }
+            if (!currentConvId) await newChat();
 
             isStreaming = true;
             sendBtn.disabled = true;
             msgInput.value = '';
             msgInput.style.height = 'auto';
+            pendingImages = [];
+            previewBar.innerHTML = '';
 
-            appendMessage('user', text);
+            // Show user message with images
+            if (images.length > 0) {
+                appendMessage('user', JSON.stringify({text, images}));
+            } else {
+                appendMessage('user', text);
+            }
             chatArea.scrollTop = chatArea.scrollHeight;
 
-            // Create bot message placeholder
+            // Bot placeholder
             const botContent = appendMessage('assistant', '');
             let fullContent = '';
 
@@ -449,6 +626,7 @@
                     body: JSON.stringify({
                         conversation_id: currentConvId,
                         message: text,
+                        images: images.length > 0 ? images : undefined,
                         model: modelSelect.value,
                     }),
                 });
@@ -478,10 +656,10 @@
                     }
                 }
 
-                // Update sidebar title
                 const titleEl = document.querySelector(`.conv-item[data-id="${currentConvId}"] .conv-title`);
                 if (titleEl && titleEl.textContent === 'New Chat') {
-                    titleEl.textContent = text.substring(0, 40) + (text.length > 40 ? '...' : '');
+                    const t = text || 'Image';
+                    titleEl.textContent = t.substring(0, 40) + (t.length > 40 ? '...' : '');
                 }
             } catch (err) {
                 botContent.textContent = 'Connection error: ' + err.message;
