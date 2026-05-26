@@ -8,9 +8,12 @@ import sqlite3
 import base64
 import time
 
+from datetime import timedelta
+
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-secret-change-me")
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024  # 20MB max upload
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
 
 DATABASE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "db.sqlite3")
 
@@ -147,6 +150,7 @@ def login():
         elif not user["approved"]:
             error = "Your account is pending approval."
         else:
+            session.permanent = True
             session["user_id"] = user["id"]
             return redirect(url_for("index"))
     return render_template("login.html", error=error)

@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Cyrus AI</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -10,9 +10,10 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             background: #0a0a0a;
             color: #e0e0e0;
-            height: 100vh;
+            height: 100dvh;
             display: flex;
             overflow: hidden;
+            padding-bottom: env(safe-area-inset-bottom);
         }
 
         /* ── Sidebar ── */
@@ -357,7 +358,7 @@
             .message { gap: 10px; }
             .message .content { font-size: 14px; }
             .message .content img.chat-img { max-width: 200px; max-height: 200px; }
-            .input-area { padding: 10px 10px 16px; }
+            .input-area { padding: 10px 10px calc(16px + env(safe-area-inset-bottom)); }
             .input-wrapper { gap: 6px; }
             .input-wrapper textarea {
                 padding: 10px 12px;
