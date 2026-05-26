@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Cyrus AI</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/contrib/auto-render.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -614,11 +617,24 @@
             });
         }
 
-        // ── Message rendering ──
-        function renderMarkdown(text) {
-            // Render markdown images: ![alt](url)
-            return text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img class="chat-img" src="$2" alt="$1" onclick="window.open(\'$2\',\'_blank\')">');
+        // ── Math rendering ──
+        function renderMath(el) {
+            if (typeof renderMathInElement === 'undefined') {
+                setTimeout(() => renderMath(el), 100);
+                return;
+            }
+            renderMathInElement(el, {
+                delimiters: [
+                    {left: '$$', right: '$$', display: true},
+                    {left: '\\[', right: '\\]', display: true},
+                    {left: '\\(', right: '\\)', display: false},
+                    {left: '$', right: '$', display: false},
+                ],
+                throwOnError: false,
+            });
         }
+
+        // ── Message rendering ──
 
         function appendMessage(role, content) {
             const div = document.createElement('div');
@@ -675,6 +691,7 @@
             }
 
             messagesDiv.appendChild(div);
+            if (!isUser) renderMath(contentEl);
             return contentEl;
         }
 
@@ -762,6 +779,9 @@
                         }
                     }
                 }
+
+                // Render math after streaming is done
+                renderMath(botContent);
 
                 const titleEl = document.querySelector(`.conv-item[data-id="${currentConvId}"] .conv-title`);
                 if (titleEl && titleEl.textContent === 'New Chat') {
