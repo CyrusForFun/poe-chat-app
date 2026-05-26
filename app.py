@@ -20,6 +20,7 @@ client = openai.OpenAI(
 )
 
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@example.com")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 
 MODELS = [
     "Claude-Sonnet-4.6",
@@ -79,7 +80,7 @@ def init_db():
     if not admin:
         db.execute(
             "INSERT INTO users (email, password_hash, approved, is_admin) VALUES (?, ?, 1, 1)",
-            (ADMIN_EMAIL, generate_password_hash("admin123")),
+            (ADMIN_EMAIL, generate_password_hash(ADMIN_PASSWORD)),
         )
         db.commit()
     db.close()
@@ -156,6 +157,26 @@ def register():
                 db.commit()
                 success = True
     return render_template("register.html", error=error, success=success)
+
+@app.route("/change-password", methods=["GET", "POST"])
+@login_required
+def change_password():
+    error = None
+    success = False
+    if request.method == "POST":
+        current = request.form["current_password"]
+        new_pw = request.form["new_password"]
+        db = get_db()
+        user = db.execute("SELECT * FROM users WHERE id = ?", (session["user_id"],)).fetchone()
+        if not check_password_hash(user["password_hash"], current):
+            error = "Current password is incorrect."
+        elif len(new_pw) < 6:
+            error = "New password must be at least 6 characters."
+        else:
+            db.execute("UPDATE users SET password_hash = ? WHERE id = ?", (generate_password_hash(new_pw), session["user_id"]))
+            db.commit()
+            success = True
+    return render_template("change_password.html", error=error, success=success)
 
 @app.route("/logout")
 def logout():
