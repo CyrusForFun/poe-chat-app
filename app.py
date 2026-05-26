@@ -109,9 +109,17 @@ def init_db():
             conversation_id INTEGER NOT NULL REFERENCES conversations(id),
             role TEXT NOT NULL,
             content TEXT NOT NULL,
+            input_tokens INTEGER DEFAULT 0,
+            output_tokens INTEGER DEFAULT 0,
             created_at TIMESTAMPTZ DEFAULT NOW()
         );
     """)
+    # Add token columns if they don't exist (for existing databases)
+    for col in ("input_tokens", "output_tokens"):
+        try:
+            cur.execute(f"ALTER TABLE messages ADD COLUMN {col} INTEGER DEFAULT 0")
+        except Exception:
+            conn.rollback()
     conn.commit()
     # Ensure admin exists
     cur.execute("SELECT id FROM users WHERE email = %s", (ADMIN_EMAIL,))
@@ -233,7 +241,11 @@ def admin():
             (SELECT COUNT(*) FROM messages WHERE conversation_id IN
                 (SELECT id FROM conversations WHERE user_id = u.id) AND role = 'user') as msg_count,
             (SELECT COUNT(*) FROM messages WHERE conversation_id IN
-                (SELECT id FROM conversations WHERE user_id = u.id) AND role = 'assistant') as reply_count
+                (SELECT id FROM conversations WHERE user_id = u.id) AND role = 'assistant') as reply_count,
+            (SELECT COALESCE(SUM(input_tokens), 0) FROM messages WHERE conversation_id IN
+                (SELECT id FROM conversations WHERE user_id = u.id)) as total_input_tokens,
+            (SELECT COALESCE(SUM(output_tokens), 0) FROM messages WHERE conversation_id IN
+                (SELECT id FROM conversations WHERE user_id = u.id)) as total_output_tokens
         FROM users u ORDER BY u.created_at DESC
     """)
     return render_template("admin.html", users=users)
@@ -383,23 +395,29 @@ def chat():
 
     def generate():
         full_response = ""
+        input_tokens = 0
+        output_tokens = 0
         try:
             stream = client.chat.completions.create(
                 model=model,
                 messages=api_messages,
                 stream=True,
+                stream_options={"include_usage": True},
             )
             for chunk in stream:
-                if chunk.choices and chunk.choices[0].delta.content:
+                if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
                     content = chunk.choices[0].delta.content
                     full_response += content
                     yield f"data: {json.dumps({'content': content})}\n\n"
-            # Save assistant response with a new connection
+                if hasattr(chunk, 'usage') and chunk.usage:
+                    input_tokens = getattr(chunk.usage, 'prompt_tokens', 0) or 0
+                    output_tokens = getattr(chunk.usage, 'completion_tokens', 0) or 0
+            # Save assistant response with token usage
             conn = psycopg2.connect(DATABASE_URL)
             cur = conn.cursor()
             cur.execute(
-                "INSERT INTO messages (conversation_id, role, content) VALUES (%s, 'assistant', %s)",
-                (conv_id, full_response),
+                "INSERT INTO messages (conversation_id, role, content, input_tokens, output_tokens) VALUES (%s, 'assistant', %s, %s, %s)",
+                (conv_id, full_response, input_tokens, output_tokens),
             )
             conn.commit()
             cur.close()

@@ -87,6 +87,8 @@
                     <th style="text-align:center">Chats</th>
                     <th style="text-align:center">Sent</th>
                     <th style="text-align:center">Replies</th>
+                    <th style="text-align:center">Input Tokens</th>
+                    <th style="text-align:center">Output Tokens</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -106,6 +108,8 @@
                     <td class="stat"><span class="stat-num">{{ u.conv_count }}</span></td>
                     <td class="stat"><span class="stat-num">{{ u.msg_count }}</span></td>
                     <td class="stat"><span class="stat-num">{{ u.reply_count }}</span></td>
+                    <td class="stat"><span class="stat-num">{{ "{:,}".format(u.total_input_tokens) }}</span></td>
+                    <td class="stat"><span class="stat-num">{{ "{:,}".format(u.total_output_tokens) }}</span></td>
                     <td class="actions">
                         {% if not u.is_admin %}
                             {% if not u.approved %}
