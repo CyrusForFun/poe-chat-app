@@ -338,7 +338,7 @@
 
         /* mobile */
         @media (max-width: 768px) {
-            body { height: 100dvh; }
+            body { height: calc(var(--vh, 1vh) * 100); }
             .mobile-menu-btn { display: flex; }
             .sidebar {
                 position: fixed;
@@ -346,13 +346,13 @@
                 top: 0;
                 z-index: 100;
                 transition: left 0.25s ease;
-                height: 100dvh;
+                height: calc(var(--vh, 1vh) * 100);
                 width: 260px;
                 min-width: 260px;
             }
             .sidebar.open { left: 0; }
             .sidebar-overlay.open { display: block; }
-            .main { height: 100dvh; }
+            .main { height: calc(var(--vh, 1vh) * 100); }
             .main-header { padding: 8px 10px; gap: 6px; }
             .model-label { font-size: 12px; }
             .model-select { padding: 5px 6px; font-size: 12px; }
@@ -361,17 +361,7 @@
             .message .avatar { width: 28px; height: 28px; font-size: 12px; }
             .message .content { font-size: 14px; line-height: 1.5; }
             .message .content img.chat-img { max-width: 180px; max-height: 180px; }
-            .chat-area { padding-bottom: 0; }
-            .input-area {
-                position: fixed;
-                bottom: 0;
-                left: 0;
-                right: 0;
-                padding: 8px 8px calc(12px + env(safe-area-inset-bottom));
-                background: #0a0a0a;
-                border-top: 1px solid #1e1e1e;
-                z-index: 50;
-            }
+            .input-area { padding: 8px 8px 12px; }
             .input-wrapper { gap: 5px; }
             .input-wrapper textarea {
                 padding: 8px 10px;
@@ -739,6 +729,17 @@
             isStreaming = false;
             sendBtn.disabled = false;
             msgInput.focus();
+        }
+
+        // ── Fix mobile viewport height (accounts for browser nav bar) ──
+        function setVH() {
+            const vh = (window.visualViewport ? window.visualViewport.height : window.innerHeight) * 0.01;
+            document.documentElement.style.setProperty('--vh', vh + 'px');
+        }
+        setVH();
+        window.addEventListener('resize', setVH);
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', setVH);
         }
 
         // ── Mobile sidebar ──
