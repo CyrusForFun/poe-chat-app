@@ -194,6 +194,10 @@ def change_password():
             success = True
     return render_template("change_password.html", error=error, success=success)
 
+@app.route("/pricing")
+def pricing():
+    return render_template("pricing.html")
+
 @app.route("/logout")
 def logout():
     session.clear()

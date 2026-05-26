@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pricing - Cyrus AI</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+        }
+        .pricing-container {
+            max-width: 800px;
+            width: 100%;
+            text-align: center;
+        }
+        .pricing-container h1 {
+            font-size: 36px;
+            font-weight: 800;
+            color: #fff;
+            margin-bottom: 8px;
+        }
+        .pricing-container .subtitle {
+            color: #888;
+            font-size: 16px;
+            margin-bottom: 48px;
+        }
+        .plans {
+            display: flex;
+            gap: 24px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .plan {
+            background: #151515;
+            border: 1px solid #2a2a2a;
+            border-radius: 16px;
+            padding: 36px 32px;
+            width: 340px;
+            text-align: left;
+            position: relative;
+        }
+        .plan.featured {
+            border-color: #6b5ce7;
+            box-shadow: 0 0 30px rgba(107, 92, 231, 0.15);
+        }
+        .plan-badge {
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #6b5ce7;
+            color: #fff;
+            padding: 4px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+        .plan h2 {
+            font-size: 22px;
+            color: #fff;
+            margin-bottom: 8px;
+        }
+        .plan .price {
+            font-size: 40px;
+            font-weight: 800;
+            color: #fff;
+            margin-bottom: 4px;
+        }
+        .plan .price span {
+            font-size: 16px;
+            font-weight: 400;
+            color: #888;
+        }
+        .plan .period {
+            color: #888;
+            font-size: 14px;
+            margin-bottom: 24px;
+        }
+        .plan ul {
+            list-style: none;
+            margin-bottom: 28px;
+        }
+        .plan ul li {
+            padding: 8px 0;
+            font-size: 14px;
+            color: #bbb;
+            border-bottom: 1px solid #1e1e1e;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .plan ul li:last-child { border-bottom: none; }
+        .check {
+            color: #6b5ce7;
+            font-weight: 700;
+            font-size: 16px;
+        }
+        .plan .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: block;
+            text-align: center;
+        }
+        .plan .btn-primary {
+            background: #6b5ce7;
+            color: #fff;
+        }
+        .plan .btn-primary:hover { background: #5a4bd6; }
+        .plan .btn-outline {
+            background: transparent;
+            color: #6b5ce7;
+            border: 1px solid #6b5ce7;
+        }
+        .plan .btn-outline:hover { background: rgba(107, 92, 231, 0.1); }
+        .back-link {
+            margin-top: 36px;
+            font-size: 14px;
+            color: #888;
+        }
+        .back-link a { color: #6b5ce7; text-decoration: none; }
+        .back-link a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="pricing-container">
+        <h1>Cyrus AI</h1>
+        <p class="subtitle">Access the world's best AI models in one place</p>
+        <div class="plans">
+            <!-- Free Plan -->
+            <div class="plan featured">
+                <div class="plan-badge">LIMITED TIME</div>
+                <h2>Free Plan</h2>
+                <div class="price">$0 <span>/ month</span></div>
+                <p class="period">Free during early access</p>
+                <ul>
+                    <li><span class="check">&#10003;</span> Unlimited messages</li>
+                    <li><span class="check">&#10003;</span> All AI models (Claude, GPT, Gemini, etc.)</li>
+                    <li><span class="check">&#10003;</span> Image upload & camera</li>
+                    <li><span class="check">&#10003;</span> Image & video generation</li>
+                    <li><span class="check">&#10003;</span> Conversation history</li>
+                    <li><span class="check">&#10003;</span> Multi-model switching</li>
+                </ul>
+                <a href="/register" class="btn btn-primary">Get Started Free</a>
+            </div>
+
+            <!-- Pro Plan (coming soon) -->
+            <div class="plan">
+                <h2>Pro Plan</h2>
+                <div class="price">TBD <span>/ month</span></div>
+                <p class="period">Coming soon</p>
+                <ul>
+                    <li><span class="check">&#10003;</span> Everything in Free</li>
+                    <li><span class="check">&#10003;</span> Priority access</li>
+                    <li><span class="check">&#10003;</span> Higher rate limits</li>
+                    <li><span class="check">&#10003;</span> Early access to new models</li>
+                    <li><span class="check">&#10003;</span> Priority support</li>
+                    <li style="color:#555">More details coming soon...</li>
+                </ul>
+                <span class="btn btn-outline" style="cursor:default; opacity:0.5;">Coming Soon</span>
+            </div>
+        </div>
+        <div class="back-link">
+            <a href="/login">&larr; Back to Login</a>
+        </div>
+    </div>
+</body>
+</html>
