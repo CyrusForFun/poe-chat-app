@@ -414,8 +414,8 @@
             </button>
             <span class="model-label" id="model-label">Select a model</span>
             <select class="model-select" id="model-select" onchange="changeModel()">
-                {% for m in models %}
-                <option value="{{ m }}">{{ m }}</option>
+                {% for id, label in models %}
+                <option value="{{ id }}">{{ label }}</option>
                 {% endfor %}
             </select>
         </div>

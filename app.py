@@ -24,30 +24,23 @@ ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "admin@example.com")
 ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")
 
 MODELS = [
-    # OpenAI
-    "GPT-4o",
-    "GPT-4o-mini",
-    "GPT-5.4",
-    # Anthropic
-    "Claude-Opus-4.7",
-    "Claude-Sonnet-4.6",
-    "Claude-Haiku-4.5",
-    "GPT-Image-1.5",
-    # Google
-    "Gemini-3.1-Pro",
-    "Gemini-2.5-Pro",
-    "Gemini-2.5-Flash",
-    # xAI
-    "Grok-4",
-    "Grok-4.20-Multi-Agent",
-    # Meta
-    "Llama-4-Maverick",
-    # DeepSeek
-    "DeepSeek-R1",
-    # Image
-    "Nano-Banana-Pro",
-    # Video
-    "Veo-3.1",
+    # (id, label)
+    ("GPT-4o", "GPT-4o — Fast & smart"),
+    ("GPT-4o-mini", "GPT-4o-mini — Lightweight"),
+    ("GPT-5.4", "GPT-5.4 — Most capable"),
+    ("Claude-Opus-4.7", "Claude Opus 4.7 — Deep reasoning"),
+    ("Claude-Sonnet-4.6", "Claude Sonnet 4.6 — Balanced"),
+    ("Claude-Haiku-4.5", "Claude Haiku 4.5 — Fast"),
+    ("Gemini-3.1-Pro", "Gemini 3.1 Pro — Google flagship"),
+    ("Gemini-2.5-Pro", "Gemini 2.5 Pro — Advanced"),
+    ("Gemini-2.5-Flash", "Gemini 2.5 Flash — Quick"),
+    ("Grok-4", "Grok 4 — xAI"),
+    ("Grok-4.20-Multi-Agent", "Grok 4.20 — Multi-agent"),
+    ("Llama-4-Maverick", "Llama 4 Maverick — Open source"),
+    ("DeepSeek-R1", "DeepSeek R1 — Reasoning"),
+    ("Nano-Banana-Pro", "Nano Banana Pro — Image generation"),
+    ("GPT-Image-1.5", "GPT Image 1.5 — Image generation"),
+    ("Veo-3.1", "Veo 3.1 — Video generation"),
 ]
 
 # ── Database ──
