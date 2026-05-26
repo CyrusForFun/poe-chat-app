@@ -338,6 +338,7 @@
 
         /* mobile */
         @media (max-width: 768px) {
+            body { height: 100dvh; }
             .mobile-menu-btn { display: flex; }
             .sidebar {
                 position: fixed;
@@ -345,31 +346,44 @@
                 top: 0;
                 z-index: 100;
                 transition: left 0.25s ease;
-                height: 100vh;
+                height: 100dvh;
                 width: 260px;
                 min-width: 260px;
             }
             .sidebar.open { left: 0; }
             .sidebar-overlay.open { display: block; }
-            .main-header { padding: 10px 12px; gap: 8px; }
-            .model-label { font-size: 13px; }
-            .model-select { padding: 6px 8px; font-size: 13px; }
-            .messages { padding: 16px 12px; }
-            .message { gap: 10px; }
-            .message .content { font-size: 14px; }
-            .message .content img.chat-img { max-width: 200px; max-height: 200px; }
-            .input-area { padding: 10px 10px calc(16px + env(safe-area-inset-bottom)); }
-            .input-wrapper { gap: 6px; }
-            .input-wrapper textarea {
-                padding: 10px 12px;
-                font-size: 14px;
-                min-height: 44px;
+            .main { height: 100dvh; }
+            .main-header { padding: 8px 10px; gap: 6px; }
+            .model-label { font-size: 12px; }
+            .model-select { padding: 5px 6px; font-size: 12px; }
+            .messages { padding: 12px 10px; }
+            .message { gap: 8px; margin-bottom: 16px; }
+            .message .avatar { width: 28px; height: 28px; font-size: 12px; }
+            .message .content { font-size: 14px; line-height: 1.5; }
+            .message .content img.chat-img { max-width: 180px; max-height: 180px; }
+            .chat-area { padding-bottom: 0; }
+            .input-area {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                padding: 8px 8px calc(12px + env(safe-area-inset-bottom));
+                background: #0a0a0a;
+                border-top: 1px solid #1e1e1e;
+                z-index: 50;
             }
-            .toolbar-btn { width: 38px; height: 38px; }
-            .toolbar-btn svg { width: 18px; height: 18px; }
-            .send-btn { width: 38px; height: 38px; }
-            .send-btn svg { width: 18px; height: 18px; }
-            .empty-state .logo { font-size: 32px; }
+            .input-wrapper { gap: 5px; }
+            .input-wrapper textarea {
+                padding: 8px 10px;
+                font-size: 14px;
+                min-height: 40px;
+            }
+            .toolbar-btn { width: 34px; height: 34px; }
+            .toolbar-btn svg { width: 16px; height: 16px; }
+            .send-btn { width: 34px; height: 34px; }
+            .send-btn svg { width: 16px; height: 16px; }
+            .empty-state .logo { font-size: 28px; }
+            .empty-state p { font-size: 13px; }
         }
     </style>
 </head>
